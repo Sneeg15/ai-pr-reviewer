@@ -39,16 +39,16 @@ jobs:
           jq -r '.results[] | "* Semgrep: " + .extra.message + " in " + .path + ":" + (.start.line|tostring)' semgrep_report.json >> issues_combined.txt
           echo -e "Explain these issues in plain English for developers:\n\n$(cat issues_combined.txt)" > prompt.txt
 
-      - name: Generate AI Explanation with Hugging Face (LLaMA)
+      - name: Generate AI Explanation with Hugging Face (Mistral)
         env:
           AI_REVIEWER_TOKEN: ${{ secrets.AI_REVIEWER_TOKEN }}
         run: |
-          prompt=$(cat prompt.txt | sed ':a;N;$!ba;s/\n/\\n/g' | sed 's/"/\\"/g')
+          prompt=$(cat prompt.txt | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')
           response=$(curl -s -X POST \
             -H "Authorization: Bearer $AI_REVIEWER_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{\"inputs\": $prompt}" \
-            https://api-inference.huggingface.co/models/meta-llama/Llama-2-7b-chat-hf)
+            https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1)
           echo "$response" > ai_explanation.json
           jq -r 'if .error then "AI explanation could not be generated." else .[0].generated_text end' ai_explanation.json > ai_explanation.txt
 
