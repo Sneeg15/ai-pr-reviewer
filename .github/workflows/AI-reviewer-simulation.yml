@@ -17,9 +17,10 @@ jobs:
 
       - name: Set up Python and Tools
         run: |
+          python -m pip install --upgrade pip
           pip install bandit
-          curl -sL https://semgrep.dev/install.sh | bash
-          sudo apt-get install -y jq
+          curl -sSL https://semgrep.dev/install.sh | bash
+          sudo apt-get update && sudo apt-get install -y jq
 
       - name: Run Bandit
         run: |
