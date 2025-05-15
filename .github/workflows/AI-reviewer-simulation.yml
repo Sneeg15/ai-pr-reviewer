@@ -43,7 +43,7 @@ jobs:
         env:
           AI_REVIEWER_TOKEN: ${{ secrets.AI_REVIEWER_TOKEN }}
         run: |
-          prompt=$(cat prompt.txt | jq -Rs .)
+          prompt=$(cat prompt.txt | sed ':a;N;$!ba;s/\n/\\n/g' | sed 's/"/\\"/g')
           response=$(curl -s -X POST \
             -H "Authorization: Bearer $AI_REVIEWER_TOKEN" \
             -H "Content-Type: application/json" \
