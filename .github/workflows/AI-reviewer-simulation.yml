@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   bugdar-review:
-    runs-on: self-hosted # Required for local LLM
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
