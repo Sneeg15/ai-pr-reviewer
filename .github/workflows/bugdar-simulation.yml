@@ -25,4 +25,4 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: "Bugdar AI Review:\n\n✅ No critical issues found.\n\nℹ️ *Simulated analysis: security, style, and performance passed.*"
-            })
+            });
