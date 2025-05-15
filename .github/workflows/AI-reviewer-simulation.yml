@@ -41,11 +41,11 @@ jobs:
 
       - name: Generate AI Explanation with Hugging Face (LLaMA)
         env:
-          HF_API_KEY: ${{ secrets.HF_API_KEY }}
+          AI_REVIEWER_TOKEN: ${{ secrets.AI_REVIEWER_TOKEN }}
         run: |
           prompt=$(cat prompt.txt | jq -Rs .)
           response=$(curl -s -X POST \
-            -H "Authorization: Bearer $HF_API_KEY" \
+            -H "Authorization: Bearer $AI_REVIEWER_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{\"inputs\": $prompt}" \
             https://api-inference.huggingface.co/models/meta-llama/Llama-2-7b-chat-hf)
