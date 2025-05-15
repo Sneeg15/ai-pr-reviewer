@@ -20,6 +20,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install bandit
           curl -sSL https://semgrep.dev/install.sh | bash
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
           sudo apt-get update && sudo apt-get install -y jq
 
       - name: Run Bandit
