@@ -50,8 +50,8 @@ jobs:
             -d "{\"inputs\": $prompt}" \
             https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1)
           echo "$response" > ai_explanation.json
-          jq -r 'if .error then "AI explanation could not be generated." else .[0].generated_text end' ai_explanation.json > ai_explanation.txt
-
+          # Extract response if valid JSON
+          echo "$response"
       - name: Comment on PR
         uses: actions/github-script@v6
         with:
