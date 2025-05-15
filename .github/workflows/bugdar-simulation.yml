@@ -1,4 +1,4 @@
-name: Bugdar Simulation Review
+name: Bugdar AI Review with Bandit
 
 on:
   pull_request:
@@ -6,7 +6,7 @@ on:
 
 permissions:
   pull-requests: write
-  
+
 jobs:
   bugdar-review:
     runs-on: ubuntu-latest
@@ -14,18 +14,34 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Simulate AI Review (Basic Example)
-        run: |
-          echo "Analyzing pull request code..."
-          echo "Security scan, performance checks, code style review simulated."
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
 
-      - name: Comment on PR with Simulated Analysis
+      - name: Install Bandit
+        run: pip install bandit
+
+      - name: Run Bandit Security Scan
+        run: |
+          bandit -r . -f json -o bandit_report.json || true
+
+      - name: Format Bandit Output for PR
+        id: format
+        run: |
+          echo '```' > comment.txt
+          bandit -r . >> comment.txt || true
+          echo '```' >> comment.txt
+
+      - name: Comment on PR with Analysis
         uses: actions/github-script@v6
         with:
           script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('comment.txt', 'utf8');
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: "Bugdar AI Review:\n\n✅ No critical issues found.\n\nℹ️ *Simulated analysis: security, style, and performance passed.*"
+              body: "Bugdar AI Review:\n\n" + report
             });
