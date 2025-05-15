@@ -31,49 +31,62 @@ jobs:
         run: |
           semgrep --config=auto --json > semgrep_report.json || true
 
-      - name: Extract and Merge Findings
+      - name: Merge Issues and Generate Prompt
         run: |
           echo "Security issues found:" > issues_combined.txt
           jq -r '.results[] | select(.issue_severity == "HIGH" or .issue_severity == "MEDIUM") | "* Bandit: " + .issue_text + " in " + .filename + ":" + (.line_number|tostring)' bandit_report.json >> issues_combined.txt
           echo "" >> issues_combined.txt
           jq -r '.results[] | "* Semgrep: " + .extra.message + " in " + .path + ":" + (.start.line|tostring)' semgrep_report.json >> issues_combined.txt
+          echo -e "Explain these issues in plain English for developers:\n\n$(cat issues_combined.txt)" > prompt.txt
 
-      - name: Comment on PR with Analysis Summary
+      - name: Generate AI Explanation with Hugging Face (LLaMA)
+        env:
+          HF_API_KEY: ${{ secrets.HF_API_KEY }}
+        run: |
+          prompt=$(cat prompt.txt | jq -Rs .)
+          response=$(curl -s -X POST \
+            -H "Authorization: Bearer $HF_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"inputs\": $prompt}" \
+            https://api-inference.huggingface.co/models/meta-llama/Llama-2-7b-chat-hf)
+          echo "$response" > ai_explanation.json
+          jq -r 'if .error then "AI explanation could not be generated." else .[0].generated_text end' ai_explanation.json > ai_explanation.txt
+
+      - name: Comment on PR
         uses: actions/github-script@v6
         with:
           script: |
             const fs = require('fs');
+            const explanation = fs.readFileSync('ai_explanation.txt', 'utf8');
+            const author = context.payload.pull_request.user.login;
             const bandit = JSON.parse(fs.readFileSync('bandit_report.json', 'utf8'));
             const semgrep = JSON.parse(fs.readFileSync('semgrep_report.json', 'utf8'));
-            const author = context.payload.pull_request.user.login;
 
             const banditIssues = bandit.results.filter(r => ["HIGH", "MEDIUM"].includes(r.issue_severity));
             const semgrepIssues = semgrep.results || [];
 
-            let body = `Hi @${author},\n\nAI Review flagged the following issues:\n\n`;
+            let summary = `Hi @${author},\n\nBugdar AI Review flagged the following issues:\n\n`;
 
             if (banditIssues.length) {
-              body += `### Bandit Issues:\n` + banditIssues.map(r =>
+              summary += `### Bandit Issues:\n` + banditIssues.map(r =>
                 `• **${r.issue_severity}**: ${r.issue_text} in \`${r.filename}:${r.line_number}\``).join('\n') + '\n\n';
             }
 
             if (semgrepIssues.length) {
-              body += `### Semgrep Issues:\n` + semgrepIssues.map(r =>
+              summary += `### Semgrep Issues:\n` + semgrepIssues.map(r =>
                 `• ${r.extra.message} in \`${r.path}:${r.start.line}\``).join('\n') + '\n\n';
             }
 
-            if (!banditIssues.length && !semgrepIssues.length) {
-              body += "✅ No high or medium severity issues were found.";
-            }
+            summary += `### AI Explanation:\n${explanation}`;
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body
+              body: summary
             });
 
-      - name: Block Merge on High Severity Bandit Issues
+      - name: Block Merge on Critical Findings
         run: |
           high_count=$(jq '[.results[] | select(.issue_severity=="HIGH")] | length' bandit_report.json)
           if [ "$high_count" -gt 0 ]; then
