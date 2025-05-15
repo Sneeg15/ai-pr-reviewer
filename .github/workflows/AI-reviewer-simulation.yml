@@ -8,7 +8,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  bugdar-review:
+  ai-review:
     runs-on: ubuntu-latest
 
     steps:
@@ -36,9 +36,6 @@ jobs:
           echo "" >> issues_combined.txt
           jq -r '.results[] | "* Semgrep: " + .extra.message + " in " + .path + ":" + (.start.line|tostring)' semgrep_report.json >> issues_combined.txt
           echo -e "Please explain the following issues in plain English:\n$(cat issues_combined.txt)" > prompt.txt
-
-      - name: Generate Explanation with Local LLM
-        run: ollama run mistral < prompt.txt > ai_explanation.txt
 
       - name: Comment on PR
         uses: actions/github-script@v6
