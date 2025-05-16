@@ -12,7 +12,7 @@ jobs:
   AI-review:
     runs-on: ubuntu-latest
     env:
-      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
     steps:
       - name: Checkout code
@@ -42,14 +42,20 @@ jobs:
           echo "" >> issues_combined.txt
           jq -r '.results[] | "* Semgrep: " + .extra.message + " in " + .path + ":" + (.start.line|tostring)' semgrep_report.json >> issues_combined.txt
 
-      - name: Generate AI Explanation using HuggingFace LLM
+      - name: Generate AI Explanation using GROQ
         run: |
           prompt=$(jq -Rs '.' < issues_combined.txt)
-          curl -s -X POST https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2 \
-            -H "Authorization: Bearer $HF_TOKEN" \
+          curl -s https://api.groq.com/openai/v1/chat/completions \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
             -H "Content-Type: application/json" \
-            -d "{\"inputs\": \"Explain these security issues in simple developer terms:\n\n\" + $prompt}" \
-            | jq -r '.[0].generated_text' > explanation.txt
+            -d '{
+              "model": "llama3-8b-8192",
+              "messages": [
+                {"role": "system", "content": "You are a security reviewer. Explain these findings simply."},
+                {"role": "user", "content": '"$prompt"'}
+              ],
+              "temperature": 0.7
+            }' | jq -r '.choices[0].message.content' > explanation.txt
 
       - name: Comment on PR with Analysis Summary
         uses: actions/github-script@v6
@@ -109,6 +115,7 @@ jobs:
             echo "❌ Merge blocked due to HIGH severity Bandit issues."
             exit 1
           fi
+
 
 
 # name: AI AI Review with Bandit
