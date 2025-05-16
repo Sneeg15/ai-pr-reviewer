@@ -6,10 +6,13 @@ on:
 
 permissions:
   pull-requests: write
+  contents: read
 
 jobs:
   AI-review:
     runs-on: ubuntu-latest
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
     steps:
       - name: Checkout code
@@ -21,6 +24,7 @@ jobs:
           pip install bandit pipx
           pipx install semgrep
           echo "$HOME/.local/bin" >> $GITHUB_PATH
+          export PATH="$HOME/.local/bin:$PATH"
           sudo apt-get update && sudo apt-get install -y jq
 
       - name: Run Bandit
@@ -29,7 +33,7 @@ jobs:
 
       - name: Run Semgrep
         run: |
-          semgrep --config=auto --json > semgrep_report.json || true
+          semgrep --config=python --json > semgrep_report.json || true
 
       - name: Extract and Merge Findings
         run: |
@@ -38,6 +42,15 @@ jobs:
           echo "" >> issues_combined.txt
           jq -r '.results[] | "* Semgrep: " + .extra.message + " in " + .path + ":" + (.start.line|tostring)' semgrep_report.json >> issues_combined.txt
 
+      - name: Generate AI Explanation using HuggingFace LLM
+        run: |
+          prompt=$(jq -Rs '.' < issues_combined.txt)
+          curl -s -X POST https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2 \
+            -H "Authorization: Bearer $HF_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"inputs\": \"Explain these security issues in simple developer terms:\n\n\" + $prompt}" \
+            | jq -r '.[0].generated_text' > explanation.txt
+
       - name: Comment on PR with Analysis Summary
         uses: actions/github-script@v6
         with:
@@ -45,12 +58,13 @@ jobs:
             const fs = require('fs');
             const bandit = JSON.parse(fs.readFileSync('bandit_report.json', 'utf8'));
             const semgrep = JSON.parse(fs.readFileSync('semgrep_report.json', 'utf8'));
+            const explanation = fs.readFileSync('explanation.txt', 'utf8');
             const author = context.payload.pull_request.user.login;
 
             const banditIssues = bandit.results.filter(r => ["HIGH", "MEDIUM"].includes(r.issue_severity));
             const semgrepIssues = semgrep.results || [];
 
-            let body = `Hi @${author},\n\nAI Review flagged the following issues:\n\n`;
+            let body = `Hi @${author},\n\nAI AI Review flagged the following issues:\n\n`;
 
             if (banditIssues.length) {
               body += `### Bandit Issues:\n` + banditIssues.map(r =>
@@ -62,9 +76,7 @@ jobs:
                 `• ${r.extra.message} in \`${r.path}:${r.start.line}\``).join('\n') + '\n\n';
             }
 
-            if (!banditIssues.length && !semgrepIssues.length) {
-              body += "✅ No high or medium severity issues were found.";
-            }
+            body += `### AI Explanation:\n${explanation.trim()}`;
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,
@@ -72,6 +84,23 @@ jobs:
               repo: context.repo.repo,
               body
             });
+
+      - name: Auto-Assign Reviewer Based on Git History
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git fetch origin main
+          reviewers=()
+          for file in $(git diff --name-only origin/main...HEAD); do
+            author=$(git log --format='%ae' -- "$file" | sort | uniq -c | sort -nr | head -1 | awk '{print $2}')
+            [[ -n "$author" ]] && reviewers+=("$author")
+          done
+          reviewers_json=$(printf '%s\n' "${reviewers[@]}" | jq -R . | jq -s .)
+          curl -s -X POST \
+            -H "Authorization: token $GH_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers \
+            -d "{\"reviewers\": $(echo $reviewers_json)}"
 
       - name: Block Merge on High Severity Bandit Issues
         run: |
