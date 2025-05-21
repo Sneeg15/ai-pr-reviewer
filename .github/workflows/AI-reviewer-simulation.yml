@@ -35,9 +35,9 @@ jobs:
         run: |
           semgrep \
             --config=auto \
-            --config=semgrep/owasp-top-ten \
-            --config=semgrep/java \
-            --config=semgrep/javascript \
+            --config=p/owasp-top-ten \
+            --config=p/java \
+            --config=p/javascript \
             --json > semgrep_report.json || true
 
           cat semgrep_report.json
