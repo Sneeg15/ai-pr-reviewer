@@ -41,6 +41,7 @@ jobs:
           jq -r '.results[] | select(.issue_severity == "HIGH" or .issue_severity == "MEDIUM") | "* Bandit: " + .issue_text + " in " + .filename + ":" + (.line_number|tostring)' bandit_report.json >> issues_combined.txt
           echo "" >> issues_combined.txt
           jq -r '.results[] | "* Semgrep: " + .extra.message + " in " + .path + ":" + (.start.line|tostring)' semgrep_report.json >> issues_combined.txt
+          cat issues_combined.txt
 
       - name: Generate AI Explanation using GROQ
         run: |
@@ -135,7 +136,7 @@ jobs:
       - name: Block Merge on High Severity Issues
         run: |
           high_bandit=$(jq '[.results[] | select(.issue_severity=="HIGH")] | length' bandit_report.json)
-          high_semgrep=$(jq '[.results[] | select(.extra.severity=="ERROR")] | length' semgrep_report.json)
+          high_semgrep=$(jq '[.results[] | length' semgrep_report.json)
       
           echo "High severity Bandit issues: $high_bandit"
           echo "High severity Semgrep issues: $high_semgrep"
