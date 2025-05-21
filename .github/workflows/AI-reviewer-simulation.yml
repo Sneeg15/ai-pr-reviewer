@@ -21,7 +21,7 @@ jobs:
       - name: Set up Python and Tools
         run: |
           python -m pip install --upgrade pip
-          #pip install bandit pipx
+          # pip install bandit pipx
           pipx install semgrep
           echo "$HOME/.local/bin" >> $GITHUB_PATH
           export PATH="$HOME/.local/bin:$PATH"
@@ -45,8 +45,8 @@ jobs:
       - name: Extract and Merge Findings
         run: |
           echo "Security issues found:" > issues_combined.txt
-          #jq -r '.results[] | select(.issue_severity == "HIGH" or .issue_severity == "MEDIUM") | "* Bandit: " + .issue_text + " in " + .filename + ":" + (.line_number|tostring)' bandit_report.json >> issues_combined.txt
-          #echo "" >> issues_combined.txt
+          # jq -r '.results[] | select(.issue_severity == "HIGH" or .issue_severity == "MEDIUM") | "* Bandit: " + .issue_text + " in " + .filename + ":" + (.line_number|tostring)' bandit_report.json >> issues_combined.txt
+          # echo "" >> issues_combined.txt
           jq -r '.results[] | "* Semgrep: " + .extra.message + " in " + .path + ":" + (.start.line|tostring)' semgrep_report.json >> issues_combined.txt
           cat issues_combined.txt
 
@@ -91,12 +91,12 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            #const bandit = JSON.parse(fs.readFileSync('bandit_report.json', 'utf8'));
+            # const bandit = JSON.parse(fs.readFileSync('bandit_report.json', 'utf8'));
             const semgrep = JSON.parse(fs.readFileSync('semgrep_report.json', 'utf8'));
             const explanation = fs.readFileSync('explanation.txt', 'utf8');
             const author = context.payload.pull_request.user.login;
 
-            #const banditIssues = bandit.results.filter(r => ["HIGH", "MEDIUM"].includes(r.issue_severity));
+            # const banditIssues = bandit.results.filter(r => ["HIGH", "MEDIUM"].includes(r.issue_severity));
             const semgrepIssues = (semgrep.results || []).filter(r => r.extra && r.extra.severity === "ERROR" && r.extra.message);
 
             let body = `Hi @${author},\n\nAI Review flagged the following issues:\n\n`;
@@ -142,10 +142,10 @@ jobs:
 
       - name: Block Merge on High Severity Issues
         run: |
-          #high_bandit=$(jq '[.results[] | select(.issue_severity=="HIGH")] | length' bandit_report.json)
+          # high_bandit=$(jq '[.results[] | select(.issue_severity=="HIGH")] | length' bandit_report.json)
           high_semgrep=$(jq '[.results[]] | length' semgrep_report.json)
       
-          #echo "High severity Bandit issues: $high_bandit"
+          # echo "High severity Bandit issues: $high_bandit"
           echo "High severity Semgrep issues: $high_semgrep"
       
           if [ [ "$high_semgrep" -gt 0 ]; then
