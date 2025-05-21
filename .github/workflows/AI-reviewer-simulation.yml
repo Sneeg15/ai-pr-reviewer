@@ -91,20 +91,20 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            # const bandit = JSON.parse(fs.readFileSync('bandit_report.json', 'utf8'));
+            // const bandit = JSON.parse(fs.readFileSync('bandit_report.json', 'utf8'));
             const semgrep = JSON.parse(fs.readFileSync('semgrep_report.json', 'utf8'));
             const explanation = fs.readFileSync('explanation.txt', 'utf8');
             const author = context.payload.pull_request.user.login;
 
-            # const banditIssues = bandit.results.filter(r => ["HIGH", "MEDIUM"].includes(r.issue_severity));
+            // const banditIssues = bandit.results.filter(r => ["HIGH", "MEDIUM"].includes(r.issue_severity));
             const semgrepIssues = (semgrep.results || []).filter(r => r.extra && r.extra.severity === "ERROR" && r.extra.message);
 
             let body = `Hi @${author},\n\nAI Review flagged the following issues:\n\n`;
 
-            # if (banditIssues.length) {
-            #   body += `### Bandit Issues:\n` + banditIssues.map(r =>
-            #     `• **${r.issue_severity}**: ${r.issue_text} in \`${r.filename}:${r.line_number}\``).join('\n') + '\n\n';
-            # }
+            // if (banditIssues.length) {
+            //   body += `### Bandit Issues:\n` + banditIssues.map(r =>
+            //     `• **${r.issue_severity}**: ${r.issue_text} in \`${r.filename}:${r.line_number}\``).join('\n') + '\n\n';
+            // }
 
             if (semgrepIssues.length) {
               body += `### Semgrep Issues (High Severity):\n` + semgrepIssues.map(r =>
