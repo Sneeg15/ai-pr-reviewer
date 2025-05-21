@@ -33,7 +33,7 @@ jobs:
 
       - name: Run Semgrep
         run: |
-          semgrep --config=auto --json > semgrep_report.json || true
+          semgrep --config=p/ci --json > semgrep_report.json || true
 
       - name: Extract and Merge Findings
         run: |
