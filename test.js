@@ -1,44 +1,24 @@
-
 const express = require('express');
 const router = express.Router()
+const request = require('request');
 
-const config = require('../../config')
-const mysql      = require('mysql');
-const connection = mysql.createConnection({
-  host     : config.MYSQL_HOST,
-  port     : config.MYSQL_PORT,
-  user     : config.MYSQL_USER,
-  password : config.MYSQL_PASSWORD,
-  database : config.MYSQL_DB_NAME,
+router.post('/downlad-url', (req, res) => {
+    downloadURL(req.body.url, () =>{
+        res.send('Done')
+    }) 
 });
- 
-connection.connect();
 
-router.get('/example1/user/:id', (req,res) => {
-    let userId = req.params.id;
-    let query = {
-        sql : "SELECT * FROM users WHERE id=" + userId
+const downloadURL = (url, onend) => {
+    const opts = {
+      uri: url,
+      method: 'GET',
+      followAllRedirects: true
     }
-    connection.query(query,(err, result) => {
-        res.json(result);
-    });
-})
-
-router.get('/example2/user/:id',  (req,res) => {
-    let userId = req.params.id;
-    connection.query("SELECT * FROM users WHERE id=" + userId,(err, result) => {
-        res.json(result);
-    });
-})
-
-router.get('/example3/user/:id',  (req,res) => {
-    let userId = req.params.id;
-    connection.query({
-        sql : "SELECT * FROM users WHERE id=" +userId
-    },(err, result) => {
-        res.json(result);
-    });
-})
-
+  
+    request(opts)
+      .on('data', ()=>{})
+      .on('end', () => onend())
+      .on('error', (err) => console.log(err, 'controller.url.download.error'))
+}
 
 module.exports = router
