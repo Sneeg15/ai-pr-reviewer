@@ -1,2 +1,2 @@
 Statement stmt = conn.createStatement();
-stmt.execute("SELECT * FROM users WHERE name = '" + input + "'");
+stmt.execute("SELECT * FROM users WHERE name = '" + input + "'"); // ❌ SQL Injection
