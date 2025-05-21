@@ -4,7 +4,7 @@ app = Flask(__name)
 
 @app.route("/test/<something>")
 def test_sources_7(something):
-  os.system(request.remote_addr)
+  #os.system(request.remote_addr)
   return "foo"
 
 if __name__ == "__main__":
