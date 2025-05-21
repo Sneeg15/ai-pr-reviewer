@@ -34,6 +34,7 @@ jobs:
       - name: Run Semgrep
         run: |
           semgrep --config=auto . --json > semgrep_report.json || true
+          cat semgrep_report.json
 
       - name: Extract and Merge Findings
         run: |
