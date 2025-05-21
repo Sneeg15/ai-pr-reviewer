@@ -101,15 +101,15 @@ jobs:
 
             let body = `Hi @${author},\n\nAI Review flagged the following issues:\n\n`;
 
-            if (banditIssues.length) {
-              body += `### Bandit Issues:\n` + banditIssues.map(r =>
-                `• **${r.issue_severity}**: ${r.issue_text} in \`${r.filename}:${r.line_number}\``).join('\n') + '\n\n';
-            }
+            # if (banditIssues.length) {
+            #   body += `### Bandit Issues:\n` + banditIssues.map(r =>
+            #     `• **${r.issue_severity}**: ${r.issue_text} in \`${r.filename}:${r.line_number}\``).join('\n') + '\n\n';
+            # }
 
-            if (semgrepIssues.length) {
-              body += `### Semgrep Issues (High Severity):\n` + semgrepIssues.map(r =>
-                `• ${r.extra.message} in \`${r.path}:${r.start.line}\``).join('\n') + '\n\n';
-            }
+            # if (semgrepIssues.length) {
+            #   body += `### Semgrep Issues (High Severity):\n` + semgrepIssues.map(r =>
+            #     `• ${r.extra.message} in \`${r.path}:${r.start.line}\``).join('\n') + '\n\n';
+            # }
 
             body += `### AI Explanation:\n${explanation.trim()}`;
 
