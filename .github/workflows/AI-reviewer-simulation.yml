@@ -59,12 +59,33 @@ jobs:
             -d '{
               "model": "llama3-8b-8192",
               "messages": [
-                {"role": "system", "content": "You are a security reviewer. Explain these findings simply."},
-                {"role": "user", "content": '"$prompt"'}
+                {
+                  "role": "system",
+                  "content": "You are a security reviewer. Given the list of findings, explain the issues clearly. Then determine which languages are involved based on file extensions (.py for Python, .js/.jsx for JavaScript). Assign reviewers as follows: JavaScript issues → SOURAVTIWARI01, Python issues → Rimi04source, both → both. At the end of your explanation, include a JSON block like this on a new line:\nREVIEW_ASSIGNMENT: {\"reviewers\": [\"Rimi04source\", \"SOURAVTIWARI01\"], \"reason\": \"Multiple file issues found in the scan, assigning specific reviewers for each.\"}"
+                },
+                {
+                  "role": "user",
+                  "content": '"$prompt"'
+                }
               ],
               "temperature": 0.7
-            }' | jq -r '.choices[0].message.content' > explanation.txt
-
+            }' | tee groq_output.json | jq -r '.choices[0].message.content' > explanation.txt
+            
+      - name: Extract Reviewers and Reason from LLM Output
+        run: |
+          # Extract JSON block using grep
+          assignment_json=$(grep -oP 'REVIEW_ASSIGNMENT:\s*\K\{.*\}' explanation.txt || echo "")
+      
+          if [ -z "$assignment_json" ]; then
+            echo "LLM did not return reviewer assignment. Falling back."
+            fallback_reviewers='["Rimi04source", "SOURAVTIWARI01"]'
+            echo "{\"reviewers\": $fallback_reviewers, \"reason\": \"Fallback: Could not determine reviewers from AI.\"}" > reviewers.json
+          else
+            echo "$assignment_json" > reviewers.json
+          fi
+      
+          cat reviewers.json
+    
       - name: Comment on PR with Analysis Summary
         uses: actions/github-script@v6
         with:
@@ -78,7 +99,7 @@ jobs:
             const banditIssues = bandit.results.filter(r => ["HIGH", "MEDIUM"].includes(r.issue_severity));
             const semgrepIssues = (semgrep.results || []).filter(r => r.extra && r.extra.severity === "ERROR" && r.extra.message);
 
-            let body = `Hi @${author},\n\nAI AI Review flagged the following issues:\n\n`;
+            let body = `Hi @${author},\n\nAI Review flagged the following issues:\n\n`;
 
             if (banditIssues.length) {
               body += `### Bandit Issues:\n` + banditIssues.map(r =>
@@ -99,45 +120,24 @@ jobs:
               body
             });
 
-      - name: Auto-Assign Reviewer Based on Git History
+      - name: Assign Reviewers from Review Assignment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Define fallback list of reviewers (GitHub usernames)
-          reviewers_list=("Rimi04source" "SOURAVTIWARI01") # Replace with actual usernames
+          reviewers=$(jq '.reviewers' reviewers.json)
+          reason=$(jq -r '.reason' reviewers.json)
       
-          # Get list of files changed in the PR
-          changed_files=$(jq -r '.pull_request.base.repo.full_name' "$GITHUB_EVENT_PATH")
-          pr_number=$(jq -r '.pull_request.number' "$GITHUB_EVENT_PATH")
           repo_full=$(jq -r '.repository.full_name' "$GITHUB_EVENT_PATH")
+          pr_number=$(jq -r '.pull_request.number' "$GITHUB_EVENT_PATH")
       
-          files=$(gh pr view "$pr_number" --json files --jq '.files[].path')
-          selected=""
-      
-          # Try to select a reviewer from git history (convert email to GitHub username if possible)
-          for file in $files; do
-            author=$(git log -n 1 --format='%an' -- "$file")
-            for reviewer in "${reviewers_list[@]}"; do
-              if [[ "$author" == "$reviewer" ]]; then
-                selected="$reviewer"
-                break
-              fi
-            done
-            [ -n "$selected" ] && break
-          done
-      
-          # Fallback: choose random reviewer if none matched
-          if [ -z "$selected" ]; then
-            selected=$(printf "%s\n" "${reviewers_list[@]}" | shuf -n1)
-          fi
-      
-          echo "Assigning reviewer: $selected"
+          echo "Assigning reviewers: $reviewers"
+          echo "Reason: $reason"
       
           curl -s -X POST \
             -H "Authorization: token $GH_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/${repo_full}/pulls/${pr_number}/requested_reviewers \
-            -d "{\"reviewers\": [\"$selected\"]}"
+            -d "{\"reviewers\": $reviewers}"
 
 
       - name: Block Merge on High Severity Issues
