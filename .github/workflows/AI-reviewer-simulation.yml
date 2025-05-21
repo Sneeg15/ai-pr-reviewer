@@ -95,18 +95,42 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git fetch origin main
-          reviewers=()
-          for file in $(git diff --name-only origin/main...HEAD); do
-            author=$(git log --format='%ae' -- "$file" | sort | uniq -c | sort -nr | head -1 | awk '{print $2}')
-            [[ -n "$author" ]] && reviewers+=("$author")
+          # Define fallback list of reviewers (GitHub usernames)
+          reviewers_list=("Rimi04source" "SOURAVTIWARI01") # Replace with actual usernames
+      
+          # Get list of files changed in the PR
+          changed_files=$(jq -r '.pull_request.base.repo.full_name' "$GITHUB_EVENT_PATH")
+          pr_number=$(jq -r '.pull_request.number' "$GITHUB_EVENT_PATH")
+          repo_full=$(jq -r '.repository.full_name' "$GITHUB_EVENT_PATH")
+      
+          files=$(gh pr view "$pr_number" --json files --jq '.files[].path')
+          selected=""
+      
+          # Try to select a reviewer from git history (convert email to GitHub username if possible)
+          for file in $files; do
+            author=$(git log -n 1 --format='%an' -- "$file")
+            for reviewer in "${reviewers_list[@]}"; do
+              if [[ "$author" == "$reviewer" ]]; then
+                selected="$reviewer"
+                break
+              fi
+            done
+            [ -n "$selected" ] && break
           done
-          reviewers_json=$(printf '%s\n' "${reviewers[@]}" | jq -R . | jq -s .)
+      
+          # Fallback: choose random reviewer if none matched
+          if [ -z "$selected" ]; then
+            selected=$(printf "%s\n" "${reviewers_list[@]}" | shuf -n1)
+          fi
+      
+          echo "Assigning reviewer: $selected"
+      
           curl -s -X POST \
             -H "Authorization: token $GH_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers \
-            -d "{\"reviewers\": $(echo $reviewers_json)}"
+            https://api.github.com/repos/${repo_full}/pulls/${pr_number}/requested_reviewers \
+            -d "{\"reviewers\": [\"$selected\"]}"
+
 
       - name: Block Merge on High Severity Bandit Issues
         run: |
