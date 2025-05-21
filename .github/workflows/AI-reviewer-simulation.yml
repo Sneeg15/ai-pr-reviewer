@@ -33,7 +33,13 @@ jobs:
 
       - name: Run Semgrep
         run: |
-          semgrep --config=auto --config=r2c.security.audit . --json > semgrep_report.json || true
+          semgrep \
+            --config=auto \
+            --config=semgrep/owasp-top-ten \
+            --config=semgrep/java \
+            --config=semgrep/javascript \
+            --json > semgrep_report.json || true
+
           cat semgrep_report.json
 
       - name: Extract and Merge Findings
