@@ -148,64 +148,7 @@ jobs:
           # echo "High severity Bandit issues: $high_bandit"
           echo "High severity Semgrep issues: $high_semgrep"
       
-          if [ [ "$high_semgrep" -gt 0 ]; then
+          if [ "$high_semgrep" -gt 0 ]; then
             echo "❌ Merge blocked due to HIGH severity issues."
             exit 1
           fi
-
-
-
-# name: AI AI Review with Bandit
-
-# on:
-#   pull_request:
-#     types: [opened, synchronize]
-
-# permissions:
-#   pull-requests: write
-
-# jobs:
-#   AI-review:
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Checkout code
-#         uses: actions/checkout@v3
-
-#       - name: Set up Python
-#         uses: actions/setup-python@v4
-#         with:
-#           python-version: '3.10'
-
-#       - name: Install Bandit
-#         run: pip install bandit
-
-#       - name: Run Bandit Security Scan
-#         run: |
-#           bandit -r . -f json -o bandit_report.json || true
-
-#       - name: Check for High/Medium Severity Issues
-#         id: check_severity
-#         run: |
-#           issues=$(jq '[.results[] | select(.issue_severity=="HIGH" or .issue_severity=="MEDIUM")] | length' bandit_report.json)
-#           echo "Issue count: $issues"
-#           echo "issues=$issues" >> $GITHUB_OUTPUT
-
-#       - name: Comment on PR with Analysis
-#         uses: actions/github-script@v6
-#         with:
-#           script: |
-#             const fs = require('fs');
-#             const report = JSON.parse(fs.readFileSync('bandit_report.json', 'utf8'));
-#             const author = context.payload.pull_request.user.login;
-#             const issues = report.results.filter(r => ["HIGH", "MEDIUM"].includes(r.issue_severity));
-#             let body = issues.length > 0
-#               ? `Hi @${author},\n\nAI AI Review found *${issues.length}* high/medium severity issue(s):\n\n`
-#                 + issues.map(r => `• **${r.issue_severity}**: ${r.issue_text} in \`${r.filename}:${r.line_number}\``).join('\n')
-#               : `Hi @${author},\n\n✅ AI AI Review found no high or medium severity issues.`;
-            
-#             github.rest.issues.createComment({
-#               issue_number: context.issue.number,
-#               owner: context.repo.owner,
-#               repo: context.repo.repo,
-#               body: body
-#             });
