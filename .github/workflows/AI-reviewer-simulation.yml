@@ -33,7 +33,7 @@ jobs:
 
       - name: Run Semgrep
         run: |
-          semgrep --config=python --json > semgrep_report.json || true
+          semgrep --config=auto --json > semgrep_report.json || true
 
       - name: Extract and Merge Findings
         run: |
@@ -68,7 +68,7 @@ jobs:
             const author = context.payload.pull_request.user.login;
 
             const banditIssues = bandit.results.filter(r => ["HIGH", "MEDIUM"].includes(r.issue_severity));
-            const semgrepIssues = semgrep.results || [];
+            const semgrepIssues = (semgrep.results || []).filter(r => r.extra && r.extra.severity === "ERROR" && r.extra.message);
 
             let body = `Hi @${author},\n\nAI AI Review flagged the following issues:\n\n`;
 
@@ -78,7 +78,7 @@ jobs:
             }
 
             if (semgrepIssues.length) {
-              body += `### Semgrep Issues:\n` + semgrepIssues.map(r =>
+              body += `### Semgrep Issues (High Severity):\n` + semgrepIssues.map(r =>
                 `• ${r.extra.message} in \`${r.path}:${r.start.line}\``).join('\n') + '\n\n';
             }
 
@@ -132,11 +132,16 @@ jobs:
             -d "{\"reviewers\": [\"$selected\"]}"
 
 
-      - name: Block Merge on High Severity Bandit Issues
+      - name: Block Merge on High Severity Issues
         run: |
-          high_count=$(jq '[.results[] | select(.issue_severity=="HIGH")] | length' bandit_report.json)
-          if [ "$high_count" -gt 0 ]; then
-            echo "❌ Merge blocked due to HIGH severity Bandit issues."
+          high_bandit=$(jq '[.results[] | select(.issue_severity=="HIGH")] | length' bandit_report.json)
+          high_semgrep=$(jq '[.results[] | select(.extra.severity=="ERROR")] | length' semgrep_report.json)
+      
+          echo "High severity Bandit issues: $high_bandit"
+          echo "High severity Semgrep issues: $high_semgrep"
+      
+          if [ "$high_bandit" -gt 0 ] || [ "$high_semgrep" -gt 0 ]; then
+            echo "❌ Merge blocked due to HIGH severity issues from Bandit or Semgrep."
             exit 1
           fi
 
