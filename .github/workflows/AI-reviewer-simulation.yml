@@ -33,7 +33,7 @@ jobs:
 
       - name: Run Semgrep
         run: |
-          semgrep --config=p/default --json > semgrep_report.json || true
+          semgrep --config=p/javascript --config=p/owasp-top-ten --json > semgrep_report.json || true
 
       - name: Extract and Merge Findings
         run: |
